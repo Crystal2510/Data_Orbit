@@ -1,0 +1,1 @@
+# api_routes sub-package — FastAPI routers for AI endpoints
