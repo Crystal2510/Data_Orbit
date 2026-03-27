@@ -30,7 +30,7 @@ from ai_engine.agents.query_agent        import query_node
 
 from core.schema_extractor import extract_full_schema
 from core.quality_analyzer import analyze_all_tables
-from core.database         import get_connection
+from core.database         import get_connection, get_cached_schema, set_cached_schema
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +174,12 @@ def run_query(connection_id: str, question: str) -> AgentState:
             current_step="error",
         )
 
-    raw_schema = extract_full_schema(engine)
+    # Use cached schema if available; otherwise extract without row counts (fast path)
+    raw_schema = get_cached_schema(connection_id)
+    if raw_schema is None:
+        logger.info("run_query: schema not cached, extracting (skip_row_counts=True)")
+        raw_schema = extract_full_schema(engine, skip_row_counts=True)
+        set_cached_schema(connection_id, raw_schema)
 
     initial_state: AgentState = {
         "connection_id":    connection_id,

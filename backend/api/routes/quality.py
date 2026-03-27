@@ -14,13 +14,16 @@ from models.schemas import (
     QualityReportResponse, TableQuality, ColumnQuality, AnomalyDetail,
     PIIReportResponse, PIITableResult, PIIColumnResult,
 )
-from core.database import get_connection
+from core.database import get_connection, get_cached_schema, set_cached_schema
 from core.quality_analyzer import analyze_table_quality, analyze_all_tables
 from core.schema_extractor import extract_full_schema
 from core.pii_detector import analyze_pii_for_schema
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# In-memory quality cache: connection_id → raw quality results
+_quality_cache: dict = {}
 
 
 def _raw_quality_to_model(raw: dict) -> TableQuality:
@@ -99,7 +102,13 @@ async def get_full_quality_report(connection_id: str) -> QualityReportResponse:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
     try:
-        raw_results = analyze_all_tables(engine)
+        # Use cache to avoid re-running expensive quality analysis on every visit
+        if connection_id in _quality_cache:
+            logger.info(f"Quality report: cache hit for {connection_id}")
+            raw_results = _quality_cache[connection_id]
+        else:
+            raw_results = analyze_all_tables(engine)
+            _quality_cache[connection_id] = raw_results
     except Exception as e:
         logger.error(f"Full quality analysis failed: {e}")
         raise HTTPException(
@@ -157,7 +166,11 @@ async def get_pii_report(connection_id: str) -> PIIReportResponse:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
     try:
-        raw_schema = extract_full_schema(engine)
+        # Use cached schema to avoid re-extraction
+        raw_schema = get_cached_schema(connection_id)
+        if raw_schema is None:
+            raw_schema = extract_full_schema(engine, skip_row_counts=True)
+            set_cached_schema(connection_id, raw_schema)
         raw_pii = analyze_pii_for_schema(raw_schema, engine)
     except Exception as e:
         logger.error(f"PII analysis failed: {e}")

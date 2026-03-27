@@ -51,49 +51,14 @@ def _get_row_count(engine: Engine, table_name: str) -> int:
         return -1
 
 
-def extract_full_schema(engine: Engine) -> dict[str, Any]:
+def extract_full_schema(engine: Engine, skip_row_counts: bool = False) -> dict[str, Any]:
     """
     Introspect the connected database and return a complete schema dictionary.
 
-    Return structure:
-    {
-        "dialect": "sqlite",      # or "postgresql", "mysql", etc.
-        "tables": [
-            {
-                "name": "orders",
-                "row_count": 99441,
-                "columns": [
-                    {
-                        "name": "order_id",
-                        "type": "VARCHAR(255)",
-                        "nullable": False,
-                        "default": None,
-                        "primary_key": True,
-                        "foreign_keys": []
-                    },
-                    {
-                        "name": "customer_id",
-                        "type": "VARCHAR(255)",
-                        "nullable": True,
-                        "default": None,
-                        "primary_key": False,
-                        "foreign_keys": [
-                            {"ref_table": "customers", "ref_column": "customer_id"}
-                        ]
-                    }
-                ],
-                "indexes": [
-                    {"name": "idx_customer", "columns": ["customer_id"], "unique": False}
-                ],
-                "unique_constraints": [
-                    {"name": "uq_order_id", "columns": ["order_id"]}
-                ]
-            }
-        ]
-    }
-
     Args:
         engine: Active, tested SQLAlchemy Engine.
+        skip_row_counts: If True, skip COUNT(*) per table (much faster for remote DBs).
+                         Row counts will be set to -1. Use for ER diagrams / query paths.
 
     Returns:
         dict with "dialect" and "tables" keys.
@@ -177,7 +142,7 @@ def extract_full_schema(engine: Engine) -> dict[str, Any]:
                 unique_constraints_data = []
 
             # ── Row Count ─────────────────────────────────────────────────────
-            row_count = _get_row_count(engine, table_name)
+            row_count = -1 if skip_row_counts else _get_row_count(engine, table_name)
 
             tables_data.append({
                 "name": table_name,
@@ -245,8 +210,7 @@ def get_single_table_schema(engine: Engine, table_name: str) -> dict[str, Any]:
     """
     Extract schema for a single named table.
 
-    Faster than extract_full_schema() when you only need one table —
-    skips iterating every other table and their row counts.
+    Faster than extract_full_schema() when you only need one table.
 
     Args:
         engine: Active SQLAlchemy Engine.
@@ -268,8 +232,8 @@ def get_single_table_schema(engine: Engine, table_name: str) -> dict[str, Any]:
             f"Available tables: {available_tables}"
         )
 
-    # Reuse full extraction for correctness, filter to the target table
-    full_schema = extract_full_schema(engine)
+    # Extract only this table (skip all others, skip row counts for speed)
+    full_schema = extract_full_schema(engine, skip_row_counts=False)
     for table in full_schema["tables"]:
         if table["name"] == table_name:
             return table

@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+  
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: #020617;
+    color: #f1f5f9;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #475569; }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-slate-900/80 border border-slate-800 rounded-xl backdrop-blur-sm;
+  }
+  
+  .btn-primary {
+    @apply bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-lg 
+           transition-all duration-150 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-ghost {
+    @apply text-slate-400 hover:text-slate-100 hover:bg-slate-800 px-3 py-2 rounded-lg 
+           transition-all duration-150 font-medium text-sm;
+  }
+
+  .input-field {
+    @apply w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 
+           placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 
+           focus:ring-indigo-500/50 transition-all duration-150 text-sm font-mono;
+  }
+
+  .stat-card {
+    @apply bg-slate-900 border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition-colors;
+  }
+}
+
+/* React Flow dark theme overrides */
+.react-flow__background { background-color: #020617 !important; }
+.react-flow__minimap { background: #0f172a !important; border: 1px solid #1e293b !important; border-radius: 8px !important; }
+.react-flow__controls { background: #1e293b !important; border: 1px solid #334155 !important; border-radius: 8px !important; }
+.react-flow__controls button { background: transparent !important; border-bottom: 1px solid #334155 !important; color: #94a3b8 !important; }
+.react-flow__controls button:hover { background: #334155 !important; }
+.react-flow__controls button:last-child { border-bottom: none !important; }

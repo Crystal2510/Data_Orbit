@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 # Module-level registry: connection_id (UUID str) → SQLAlchemy Engine
 _engine_registry: Dict[str, Engine] = {}
 
+# Schema cache: connection_id → extracted schema dict (avoids re-extracting on every request)
+_schema_cache: Dict[str, dict] = {}
+
 
 def create_engine_from_url(connection_string: str) -> Engine:
     """
@@ -202,9 +205,29 @@ def remove_connection(connection_id: str) -> bool:
         True if removed successfully, False if ID was not found.
     """
     engine = _engine_registry.pop(connection_id, None)
+    _schema_cache.pop(connection_id, None)  # evict cached schema too
     if engine is not None:
         engine.dispose()
         logger.info(f"Connection {connection_id} disposed and removed.")
         return True
     logger.warning(f"Tried to remove unknown connection: {connection_id}")
     return False
+
+
+# ── Schema cache helpers ───────────────────────────────────────────────────
+
+def get_cached_schema(connection_id: str) -> dict | None:
+    """Return the cached schema for a connection, or None if not cached."""
+    return _schema_cache.get(connection_id)
+
+
+def set_cached_schema(connection_id: str, schema: dict) -> None:
+    """Store the extracted schema dict in memory for fast future access."""
+    _schema_cache[connection_id] = schema
+    logger.info(f"Schema cached for connection {connection_id}")
+
+
+def invalidate_schema_cache(connection_id: str) -> None:
+    """Force the next schema request to re-extract from the database."""
+    _schema_cache.pop(connection_id, None)
+    logger.info(f"Schema cache invalidated for connection {connection_id}")

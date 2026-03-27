@@ -14,7 +14,7 @@ from models.schemas import (
     GraphNode, RelationshipEdge, ColumnSchema, ForeignKeyRef,
     IndexInfo, UniqueConstraintInfo,
 )
-from core.database import get_connection
+from core.database import get_connection, get_cached_schema, set_cached_schema
 from core.schema_extractor import extract_full_schema, build_relationship_map, get_single_table_schema
 
 logger = logging.getLogger(__name__)
@@ -83,7 +83,11 @@ async def get_full_schema(connection_id: str) -> FullSchemaResponse:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
     try:
-        raw_schema = extract_full_schema(engine)
+        # Use cache so row counts are only fetched once per connection
+        raw_schema = get_cached_schema(connection_id)
+        if raw_schema is None:
+            raw_schema = extract_full_schema(engine)
+            set_cached_schema(connection_id, raw_schema)
     except RuntimeError as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -111,7 +115,8 @@ async def get_schema_graph(connection_id: str) -> SchemaGraphResponse:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
     try:
-        raw_schema = extract_full_schema(engine)
+        # Skip row counts for the ER diagram — pure structural reflection is fast
+        raw_schema = extract_full_schema(engine, skip_row_counts=True)
     except RuntimeError as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
